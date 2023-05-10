@@ -1,17 +1,76 @@
-import random
+from bit import *
 
-with open("words.txt", "r") as f:
-    bip39_words = f.read().splitlines()
+import base58
 
-while True:
-    bip39_codes = []
-    for i in range(12):
-        bip39_codes.append(random.choice(bip39_words))
-    # check the balance of the bip39 codes here (not implemented)
-    balance = 0  # temporarily setting balance to 0
-    if balance > 0:
-        with open("found.txt", "a") as f:
-            f.write(" ".join(bip39_codes) + "\n")
-            print(f"Code with positive balance found: {' '.join(bip39_codes)} saved to found.txt")
-    else:
-        print(f"Code with zero balance generated: {' '.join(bip39_codes)}")
+import multiprocessing
+
+def run_code():
+
+    # Opening a txt file to write the results
+    file = open("addresses_with_balance.txt", "a")
+
+    addresses = set()
+
+    while True:
+
+        private_key = Key()
+
+        wif = private_key.to_wif()
+
+        address = private_key.address
+
+        if address in addresses:
+
+            continue
+
+        addresses.add(address)
+
+        balance = private_key.get_balance("satoshi")
+
+        print("WIF: ", wif)
+        print("Address: ", address)
+        print("Balance: ", balance, "satoshis")
+
+        try:
+            decoded = base58.b58decode_check(address)
+
+            if len(decoded) == 21 and decoded[0] in [0x00, 0x05]:
+                valid = True
+            else:
+                valid = False
+
+        except ValueError:
+            valid = False
+
+        if valid:
+
+            if int(balance) > 0:
+
+                # Writing the results to the txt file
+                file.write("WIF: " + wif + "\n")
+                file.write("Address: " + address + "\n")
+                file.write("Balance: " + str(balance) + " satoshis\n")
+                file.write("\n")
+
+        else:
+
+            print("Invalid address!")
+
+    file.close()
+
+num_processes = 4
+
+if __name__ == '__main__':
+
+    processes = []
+
+    for i in range(num_processes):
+
+        p = multiprocessing.Process(target=run_code)
+
+        processes.append(p)
+
+        p.start()
+
+    for p in processes:
+        p.join()
